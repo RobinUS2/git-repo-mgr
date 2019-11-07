@@ -6,5 +6,7 @@ import ("github.com/RobinUS2/git-repo-mgr/service"
 
 func main() {
 	i := service.New()
-	log.Printf("%+v", i)
+	if err := i.Run(); err != nil {
+		log.Fatalf("failed: %s", err)
+	}
 }
