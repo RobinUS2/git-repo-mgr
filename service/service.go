@@ -95,7 +95,7 @@ func (i *Instance) loadConf() error {
 
 func (i *Instance) handleFile(fileInfo os.FileInfo) error {
 	if !fileInfo.IsDir() {
-		 // ignore
+		// ignore
 		return nil
 	}
 	path := i.conf.Path + fileInfo.Name()

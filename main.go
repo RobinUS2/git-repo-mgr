@@ -1,6 +1,7 @@
 package main
 
-import ("github.com/RobinUS2/git-repo-mgr/service"
+import (
+	"github.com/RobinUS2/git-repo-mgr/service"
 	"log"
 )
 
