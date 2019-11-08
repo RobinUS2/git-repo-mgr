@@ -61,6 +61,7 @@ func (i *Instance) Run() error {
 			defer wg.Done()
 			err := i.handleFile(f)
 			if err != nil {
+				err = fmt.Errorf("%s error: %s", f.Name(), err)
 				errorsMux.Lock()
 				errList = append(errList, err)
 				errorsMux.Unlock()
@@ -134,18 +135,31 @@ func (i *Instance) handleFile(fileInfo os.FileInfo) error {
 	}
 
 	// state
-	s, err := i.GetOrCreateState(cwd)
-	log.Printf("%+v %s", s, err)
+	state, err := i.GetOrCreateState(cwd)
+	if err != nil {
+		if err.Error() == ErrNoOrigin {
+			// just skip
+			return nil
+		}
+		return err
+	}
+	log.Printf("%+v %s state", state, err)
 
-	// origin
-	//res, err := i.RunGit(Cwd(path), "config", "--get", "remote.origin.url")
-	//log.Printf("%s %s, %v", path, res, err)
-
-	// @todo check stale git
+	// update once a day
+	if time.Since(state.Updated) > 24 * time.Hour {
+		// update
+		if err := i.UpdateStateFromGit(state); err != nil {
+			return err
+		}
+		// persist
+		if err := i.PutState(state); err != nil {
+			return err
+		}
+	}
 
 	// @todo check last used
 
-	log.Printf("%s %v %v", path, gitPathF, gitErr)
+	log.Printf("%s state %v %v", path, gitPathF, gitErr)
 
 	return nil
 }
@@ -167,6 +181,8 @@ func (i *Instance) GetOrCreateState(cwd Cwd) (state *StateDetails, err error) {
 	return state, i.PutState(state)
 }
 
+const ErrNoOrigin = "no origin"
+
 func (i *Instance) UpdateStateFromGit(state *StateDetails) (err error) {
 	if state == nil {
 		panic("missing state")
@@ -179,7 +195,7 @@ func (i *Instance) UpdateStateFromGit(state *StateDetails) (err error) {
 
 	state.GitOrigin, err = i.GitOrigin(state.GetCwd())
 	if err != nil {
-		return err
+		return errors.New(ErrNoOrigin)
 	}
 
 	state.GitLastUpdate, err = i.GitLastCommitTime(state.GetCwd())
@@ -298,7 +314,6 @@ func (i *Instance) RunGit(cwd Cwd, firstArg string, arg ...string) (str string, 
 				err = fmt.Errorf("%s", r)
 			}
 		}
-
 		i.gitCmdConcurrencyThrottle <- true
 	}()
 
